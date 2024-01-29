@@ -10,6 +10,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -24,44 +25,31 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        String message = update.getMessage().getText();
-        Long id = update.getMessage().getChatId();
-        System.out.println(id);
-        if (message.equals("Go") || message.equals("/start")) {
-            try {
+        try {
+            String message = update.getMessage().getText();
+            Long id = update.getMessage().getChatId();
+            System.out.println("test");
+            if (message.equalsIgnoreCase("Go") || message.equalsIgnoreCase("/start")) {
                 ifAnsverGo(update.getMessage().getChatId(), getRandomURL());
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
-        } else if (message.equalsIgnoreCase("да") || message.equalsIgnoreCase("нет")) {
-            try {
+            } else if (message.equalsIgnoreCase("да") || message.equalsIgnoreCase("нет")) {
                 ifAnsverYesOrNo(id, message);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
-        } else {
-            SendMessage sendMessage1 = sendMessages(id, "Нет такой команды, попробуй Go");
-            try {
+            } else {
+                SendMessage sendMessage1 = sendMessages(id, "Нет такой команды, попробуй Go");
                 execute(sendMessage1);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
             }
+        } catch (TelegramApiException e) {
+            throw new IllegalArgumentException();
         }
     }
 
 
     private String getRandomURL() {
         try {
-            // Читаем все строки из файла
             List<String> lines = Files.readAllLines(Paths.get(PATH_TO_FILE_WITH_URL));
-
-            // Выбираем случайную строку
             if (!lines.isEmpty()) {
                 Random random = new Random();
                 int randomIndex = random.nextInt(lines.size());
-                System.out.println("Index=" + randomIndex);
                 answer = randomIndex >= 50 ? "да" : "нет";
-                System.out.println("answ=" + answer);
                 return lines.get(randomIndex);
             }
         } catch (IOException e) {
@@ -81,28 +69,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         row.add(new KeyboardButton("Go"));
         keyboardRows.add(row);
         keyboardMarkup1.setKeyboard(keyboardRows);
-
-        if (message.equals(answer)) {
-            try {
-                Rating(id, 1);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            SendMessage sendMessage = sendMessages(id, "Ура ура! Ты прав. Твой счёт: " + rating);
-            sendMessage.setReplyMarkup(keyboardMarkup1);
-            execute(sendMessage);
-        } else {
-            SendMessage sendMessage = sendMessages(id, "К сожалению нет... Компьютер тебя обыграл");
-            sendMessage.setReplyMarkup(keyboardMarkup1);
-            execute(sendMessage);
+        try {
+            Rating(id, 1);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+        SendMessage sendMessage = sendMessages(id, message.equals(answer) ? "Ура ура! Ты прав. Твой счёт: " + rating : "К сожалению нет... Компьютер тебя обыграл");
+        sendMessage.setReplyMarkup(keyboardMarkup1);
+        execute(sendMessage);
     }
 
     public void Rating(Long id, int points) throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(PATH_TO_FILE_WITH_RATING));
         Map<Long, Integer> ratingMap = new HashMap<>();
 
-        // Заполнение карты из файла
         for (String line : lines) {
             String[] parts = line.split(":");
             if (parts.length == 2) {
@@ -112,18 +92,14 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
         }
 
-        // Обновление рейтинга
         if (ratingMap.containsKey(id)) {
             int currentPoints = ratingMap.get(id);
             ratingMap.put(id, currentPoints + points);
 
         } else {
-            // Если id отсутствует, добавляем новую запись с рейтингом 1
             ratingMap.put(id, 1);
         }
         rating = ratingMap.get(id);
-
-        // Сохранение нового рейтинга в файл
         List<String> updatedLines = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : ratingMap.entrySet()) {
             String line = entry.getKey() + ":" + entry.getValue();
@@ -177,7 +153,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
-        return "Api_Key";
+        return "Api_key";
     }
 }
 
